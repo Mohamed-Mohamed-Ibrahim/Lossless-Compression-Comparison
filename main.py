@@ -76,18 +76,22 @@ def main():
     with open(filePath, "rb") as file:
         data = file.read()
 
-    if mode == Mode.RangeCodingCompressor:
-        compressor = RangeCodingCompressor()
-        compressor.compress(data)
-    elif mode == Mode.RangeCodingCompressor:
-        decompressor = RangeCodingCompressor()
-        decompressor.decompress(data)
-    elif mode == Mode.DeflateCompressor:
-        compressor = DeflateCompressor()
-        compressor.compress(data)
-    elif mode == Mode.DeflateDecompressor:
-        decompressor = DeflateCompressor()
-        decompressor.decompress(data)
+    try:
+        if mode == Mode.RangeCodingCompressor:
+            compressor = RangeCodingCompressor()
+            compressor.compress(data)
+        elif mode == Mode.RangeCodingCompressor:
+            decompressor = RangeCodingCompressor()
+            decompressor.decompress(data)
+        elif mode == Mode.DeflateCompressor:
+            compressor = DeflateCompressor()
+            compressor.compress(data)
+        elif mode == Mode.DeflateDecompressor:
+            decompressor = DeflateCompressor()
+            decompressor.decompress(data)
+    except Exception as e:
+        logging.error(f"An unexpected error occurred: {e}")
+
 
 
 if __name__ == "__main__":
