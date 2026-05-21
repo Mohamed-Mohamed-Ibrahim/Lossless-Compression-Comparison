@@ -80,7 +80,7 @@ def main():
         if mode == Mode.RangeCodingCompressor:
             compressor = RangeCodingCompressor()
             compressor.compress(data)
-        elif mode == Mode.RangeCodingCompressor:
+        elif mode == Mode.RangeCodingDecompressor:
             decompressor = RangeCodingCompressor()
             decompressor.decompress(data)
         elif mode == Mode.DeflateCompressor:
