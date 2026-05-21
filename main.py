@@ -79,16 +79,29 @@ def main():
     try:
         if mode == Mode.RangeCodingCompressor:
             compressor = RangeCodingCompressor()
-            compressor.compress(data)
+            compressedData = compressor.compress(data)
+            out_path = filePath + ".rng"
+            with open(out_path, "wb") as f:
+                f.write(compressedData)
         elif mode == Mode.RangeCodingDecompressor:
             decompressor = RangeCodingCompressor()
-            decompressor.decompress(data)
+            decompressedData = decompressor.decompress(data)
+            out_path = filePath.rsplit(".rng", 1)[0]
+            with open(out_path, "wb") as f:
+                f.write(decompressedData)
         elif mode == Mode.DeflateCompressor:
             compressor = DeflateCompressor()
             compressor.compress(data)
+            compressedData = compressor.compress(data)
+            out_path = filePath + ".sdfl"
+            with open(out_path, "wb") as f:
+                f.write(compressedData)
         elif mode == Mode.DeflateDecompressor:
             decompressor = DeflateCompressor()
-            decompressor.decompress(data)
+            decompressedData = decompressor.decompress(data)
+            out_path = filePath.rsplit(".sdfl", 1)[0]
+            with open(out_path, "wb") as f:
+                f.write(decompressedData)
     except Exception as e:
         logging.error(f"An unexpected error occurred: {e}")
 
