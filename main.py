@@ -3,6 +3,7 @@ import sys
 import logging
 import argparse
 from constants.modes import Mode
+from constants.constants import MAX_FILE_SIZE
 from deflate.compressor import DeflateCompressor
 from range_coding.compressor import RangeCodingCompressor
 
@@ -47,6 +48,12 @@ def check_file_path(mode, filePath):
         logging.error("Deflate Decompressed file should end with sdfl.")
         sys.exit(1)
 
+def check_file_size(filePath):
+    size = os.path.getsize(filePath)
+    if size > MAX_FILE_SIZE:
+        logging.error("Maximum File size allowed is 50 MB.")
+        sys.exit(1)
+
 
 def main():
     args = get_parser()
@@ -72,6 +79,8 @@ def main():
         sys.exit(1)
 
     check_file_path(mode, filePath)
+
+    check_file_size(filePath)
 
     with open(filePath, "rb") as file:
         data = file.read()
