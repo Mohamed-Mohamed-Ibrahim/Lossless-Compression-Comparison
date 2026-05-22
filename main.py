@@ -48,6 +48,7 @@ def check_file_path(mode, filePath):
         logging.error("Deflate Decompressed file should end with sdfl.")
         sys.exit(1)
 
+
 def check_file_size(filePath):
     size = os.path.getsize(filePath)
     if size > MAX_FILE_SIZE:
@@ -78,14 +79,14 @@ def main():
         logging.error("Sorry not supported operation.")
         sys.exit(1)
 
-    check_file_path(mode, filePath)
-
-    check_file_size(filePath)
-
-    with open(filePath, "rb") as file:
-        data = file.read()
-
     try:
+        check_file_path(mode, filePath)
+
+        check_file_size(filePath)
+
+        with open(filePath, "rb") as file:
+            data = file.read()
+
         if mode == Mode.RangeCodingCompressor:
             compressor = RangeCodingCompressor()
             compressedData = compressor.compress(data)
@@ -113,7 +114,6 @@ def main():
                 f.write(decompressedData)
     except Exception as e:
         logging.error(f"An unexpected error occurred: {e}")
-
 
 
 if __name__ == "__main__":
