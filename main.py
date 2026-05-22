@@ -40,29 +40,8 @@ def configure_logging():
     )
 
 
-def check_file_path(mode, filePath):
-    if mode == Mode.RangeCodingDecompressor and not filePath.endswith(".rng"):
-        logging.error("Range Coding Decompressed file should end with rng.")
-        sys.exit(1)
-    if mode == Mode.DeflateDecompressor and not filePath.endswith(".sdfl"):
-        logging.error("Deflate Decompressed file should end with sdfl.")
-        sys.exit(1)
-
-
-def check_file_size(filePath):
-    size = os.path.getsize(filePath)
-    if size > MAX_FILE_SIZE:
-        logging.error("Maximum File size allowed is 50 MB.")
-        sys.exit(1)
-
-
-def main():
-    args = get_parser()
-    configure_logging()
-
-    mode = None
-    filePath = None
-
+def get_mode_from_args(args):
+    mode, filePath = None, None
     if args.rc != None:
         mode = Mode.RangeCodingCompressor
         filePath = args.rc
@@ -76,10 +55,33 @@ def main():
         mode = Mode.DeflateDecompressor
         filePath = args.d
     else:
-        logging.error("Sorry not supported operation.")
-        sys.exit(1)
+        raise Exception("Sorry not supported operation.")
+    return mode, filePath
+
+
+def check_file_path(mode, filePath):
+    if mode == Mode.RangeCodingDecompressor and not filePath.endswith(".rng"):
+        raise Exception("Range Coding Decompressed file should end with rng.")
+    if mode == Mode.DeflateDecompressor and not filePath.endswith(".sdfl"):
+        raise Exception("Deflate Decompressed file should end with sdfl.")
+
+
+def check_file_size(filePath):
+    size = os.path.getsize(filePath)
+    if size > MAX_FILE_SIZE:
+        raise Exception("Maximum File size allowed is 50 MB.")
+
+
+def main():
+    args = get_parser()
+    configure_logging()
+
+    mode = None
+    filePath = None
 
     try:
+        mode, filePath = get_mode_from_args(args)
+
         check_file_path(mode, filePath)
 
         check_file_size(filePath)
