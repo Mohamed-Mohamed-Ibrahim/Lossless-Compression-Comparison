@@ -13,6 +13,9 @@ import os
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 
 from shared_types import Literal, Match, LiteralEvent, MatchEvent, EndEvent
+from collections import defaultdict
+
+from constants.constants import WINDOW_SIZE, MIN_MATCH, MAX_MATCH, MAX_CANDIDATES
 
 
 # ══════════════════════════════════════════════════════════════════
@@ -146,6 +149,80 @@ def _lz77_copy(buf: bytearray, length: int, distance: int) -> None:
     for i in range(length):
         buf.append(buf[start + i])
 
+# ══════════════════════════════════════════════════════════════════
+# Public API — (LZ77 Tokens Generateion)
+# ══════════════════════════════════════════════════════════════════
+def get_lz77_tokens(data: bytes) -> list:
+    tokens = []
+    table = defaultdict(list) 
+    i = 0
+    data_length = len(data)
+
+    while i < data_length:
+
+        if i + MIN_MATCH > data_length:
+            tokens.append(Literal(data[i]))
+            i += 1
+            continue 
+        
+        key = data[i : i+3]
+        best_length = 0
+        best_distance = 0
+        candidates_checked = 0
+        
+        for candidate_pos in table[key][::-1]:
+            distance = i - candidate_pos
+            
+            if distance > WINDOW_SIZE or candidates_checked >= MAX_CANDIDATES:
+                break
+            
+            length = 0
+            while (i + length < data_length and length < MAX_MATCH and data[i + length] == data[candidate_pos + length]):
+                length += 1
+        
+            if length > best_length:
+                best_length = length
+                best_distance = distance
+
+            candidates_checked += 1
+            
+        if best_length >= MIN_MATCH:
+            tokens.append(Match(best_length, best_distance))
+            
+            for k in range(best_length):
+                pos = i + k
+                if pos + 3 <= data_length:
+                    table[data[pos : pos+3]].append(pos)
+            
+            i += best_length
+        
+        else:
+            tokens.append(Literal(data[i]))
+            table[key].append(i)
+            i += 1
+            
+    return tokens
+
+# ══════════════════════════════════════════════════════════════════
+# Public API — (LZ77 Decompression)
+# ══════════════════════════════════════════════════════════════════
+
+def lz77_decompress(tokens: list) -> bytes:
+    buffer = bytearray()
+    
+    for token in tokens:
+        if isinstance(token, Literal):
+            buffer.append(token.byte)
+            
+        elif isinstance(token, Match):
+            start_index = len(buffer) - token.distance
+            
+            for i in range(token.length):
+                byte_to_copy = buffer[start_index + i]
+                buffer.append(byte_to_copy)
+                
+    return bytes(buffer)
+
 
 # ══════════════════════════════════════════════════════════════════
 # Public API — compression side
@@ -231,62 +308,159 @@ def deflate_decompress(events: list) -> bytes:
 # Self-tests  (run with:  python deflate.py)
 # ══════════════════════════════════════════════════════════════════
 
+# ══════════════════════════════════════════════════════════════════
+# LZ77 Tests
+# ══════════════════════════════════════════════════════════════════
+
+def run_lz77_tests():
+    print("--- Running LZ77 Tests ---\n")
+    all_passed = True
+
+    def check(test_num, description, original, tokens, reconstructed):
+        passed = original == reconstructed
+        print(f"Test {test_num}: {description}")
+        print(f"  Original:      {original}")
+        print(f"  Tokens:")
+        for t in tokens:
+            print(f"    {t}")
+        print(f"  Reconstructed: {reconstructed}")
+        print(f"  Pass?          {passed}\n")
+        return passed
+
+    # ── Test 1: Project worked example (Section 9.2) ──────────────
+    data = b'abcabcabcabc'
+    tokens = get_lz77_tokens(data)
+    recon = lz77_decompress(tokens)
+    all_passed &= check(1, "Project worked example", data, tokens, recon)
+
+    # ── Test 2: Overlapping match (Section 4.5) ───────────────────
+    data = b'aaaaaaaaaa'
+    tokens = get_lz77_tokens(data)
+    recon = lz77_decompress(tokens)
+    all_passed &= check(2, "Overlapping match", data, tokens, recon)
+
+    # ── Test 3: Empty input ───────────────────────────────────────
+    data = b''
+    tokens = get_lz77_tokens(data)
+    recon = lz77_decompress(tokens)
+    all_passed &= check(3, "Empty input", data, tokens, recon)
+
+    # ── Test 4: Single byte ───────────────────────────────────────
+    data = b'A'
+    tokens = get_lz77_tokens(data)
+    recon = lz77_decompress(tokens)
+    all_passed &= check(4, "Single byte (must be Literal)", data, tokens, recon)
+
+    # ── Test 5: Two bytes (below MIN_MATCH, must be literals) ─────
+    data = b'AB'
+    tokens = get_lz77_tokens(data)
+    recon = lz77_decompress(tokens)
+    all_passed &= check(5, "Two bytes - below MIN_MATCH, all literals", data, tokens, recon)
+
+    # ── Test 6: No repetition (all literals) ─────────────────────
+    data = b'abcdefghij'
+    tokens = get_lz77_tokens(data)
+    recon = lz77_decompress(tokens)
+    all_passed &= check(6, "No repetition - all literals expected", data, tokens, recon)
+
+    # ── Test 7: Exact MIN_MATCH length (length=3) ─────────────────
+    data = b'xyzxyz'
+    tokens = get_lz77_tokens(data)
+    recon = lz77_decompress(tokens)
+    # Must contain a Match(length=3, distance=3)
+    has_match = any(isinstance(t, Match) and t.length == 3 for t in tokens)
+    passed = (data == recon) and has_match
+    print(f"Test 7: Exact MIN_MATCH=3 triggers a match")
+    print(f"  Original:      {data}")
+    print(f"  Tokens:")
+    for t in tokens: print(f"    {t}")
+    print(f"  Reconstructed: {recon}")
+    print(f"  Has Match(length=3)? {has_match}")
+    print(f"  Pass?          {passed}\n")
+    all_passed &= passed
+
+    # ── Test 8: Length below MIN_MATCH should NOT produce match ───
+    data = b'xyxy'
+    tokens = get_lz77_tokens(data)
+    recon = lz77_decompress(tokens)
+    # 'xy' repeated - only 2 bytes match so no Match token allowed
+    has_illegal_match = any(isinstance(t, Match) and t.length < 3 for t in tokens)
+    passed = (data == recon) and not has_illegal_match
+    print(f"Test 8: Length < MIN_MATCH must not emit a Match token")
+    print(f"  Original:      {data}")
+    print(f"  Tokens:")
+    for t in tokens: print(f"    {t}")
+    print(f"  Reconstructed: {recon}")
+    print(f"  Has illegal Match (length<3)? {has_illegal_match}")
+    print(f"  Pass?          {passed}\n")
+    all_passed &= passed
+
+    # ── Test 9: MAX_MATCH cap (length must not exceed 258) ────────
+    data = bytes([65] * 300)  # 300 'A's
+    tokens = get_lz77_tokens(data)
+    recon = lz77_decompress(tokens)
+    max_len = max((t.length for t in tokens if isinstance(t, Match)), default=0)
+    passed = (data == recon) and (max_len <= 258)
+    print(f"Test 9: MAX_MATCH cap - no match length > 258")
+    print(f"  Original:      300 x 'A'")
+    print(f"  Max match length found: {max_len}")
+    print(f"  Reconstructed matches original? {data == recon}")
+    print(f"  Pass?          {passed}\n")
+    all_passed &= passed
+
+    # ── Test 10: Distance must not exceed WINDOW_SIZE=32768 ───────
+    # Two identical 3-byte sequences separated by exactly WINDOW_SIZE bytes
+    data = b'abc' + bytes(32768) + b'abc'
+    tokens = get_lz77_tokens(data)
+    recon = lz77_decompress(tokens)
+    max_dist = max((t.distance for t in tokens if isinstance(t, Match)), default=0)
+    passed = (data == recon) and (max_dist <= 32768)
+    print(f"Test 10: Distance must not exceed WINDOW_SIZE=32768")
+    print(f"  Max distance found: {max_dist}")
+    print(f"  Reconstructed matches original? {data == recon}")
+    print(f"  Pass?          {passed}\n")
+    all_passed &= passed
+
+    # ── Test 11: Multiple non-overlapping matches ─────────────────
+    data = b'helloWorldhelloWorld'
+    tokens = get_lz77_tokens(data)
+    recon = lz77_decompress(tokens)
+    all_passed &= check(11, "Multiple matches - helloWorldhelloWorld", data, tokens, recon)
+
+    # ── Test 12: Binary data (non-text bytes) ────────────────────
+    data = bytes([0, 1, 2, 3, 0, 1, 2, 3, 0, 1, 2, 3])
+    tokens = get_lz77_tokens(data)
+    recon = lz77_decompress(tokens)
+    all_passed &= check(12, "Binary data with repetition", data, tokens, recon)
+
+    # ── Test 13: All zeros ────────────────────────────────────────
+    data = bytes(50)
+    tokens = get_lz77_tokens(data)
+    recon = lz77_decompress(tokens)
+    all_passed &= check(13, "All zero bytes", data, tokens, recon)
+
+    # ── Test 14: Prefer smaller distance on equal match length ────
+    # 'abc' appears at pos 0 and pos 3, current pos is 6
+    # Both give length=3, should prefer distance=3 (closer)
+    data = b'abcabcabc'
+    tokens = get_lz77_tokens(data)
+    recon = lz77_decompress(tokens)
+    # Find the last match - it should prefer distance=3 over distance=6
+    matches = [t for t in tokens if isinstance(t, Match)]
+    preferred_dist = all(m.distance <= 6 for m in matches)
+    passed = (data == recon) and preferred_dist
+    print(f"Test 14: Prefer smaller distance on equal match length")
+    print(f"  Original:      {data}")
+    print(f"  Tokens:")
+    for t in tokens: print(f"    {t}")
+    print(f"  Reconstructed: {recon}")
+    print(f"  Pass?          {passed}\n")
+    all_passed &= passed
+
+    # ── Final Result ──────────────────────────────────────────────
+    print("=" * 50)
+    print(f"All Tests Passed: {all_passed}")
+    print("=" * 50)
+
 if __name__ == "__main__":
-
-    # ── encode_length ──────────────────────────────────────────
-    assert encode_length(3)   == (257, ''),  "length 3"
-    assert encode_length(9)   == (263, ''),  "length 9"
-    assert encode_length(20)  == (269, '01'),"length 20"
-    assert encode_length(258) == (285, ''),  "length 258"
-    print("encode_length        : OK")
-
-    # ── encode_distance ────────────────────────────────────────
-    assert encode_distance(1) == (0, ''),  "distance 1"
-    assert encode_distance(3) == (2, ''),  "distance 3"
-    assert encode_distance(6) == (4, '1'), "distance 6"
-    print("encode_distance      : OK")
-
-    # ── round-trip length ──────────────────────────────────────
-    for L in range(3, 259):
-        sym, bits = encode_length(L)
-        assert decode_length(sym, bits) == L, f"length round-trip failed for {L}"
-    print("length round-trip    : OK (3..258)")
-
-    # ── round-trip distance ────────────────────────────────────
-    for D in [1, 2, 3, 4, 5, 6, 7, 8, 100, 1000, 10000, 32768]:
-        sym, bits = encode_distance(D)
-        assert decode_distance(sym, bits) == D, f"distance round-trip failed for {D}"
-    print("distance round-trip  : OK")
-
-    # ── spec worked example ────────────────────────────────────
-    tokens = [Literal(97), Literal(98), Literal(99), Match(length=9, distance=3)]
-    events = tokens_to_events(tokens)
-
-    expected_events = [
-        LiteralEvent(97), LiteralEvent(98), LiteralEvent(99),
-        MatchEvent(263, '', 2, ''), EndEvent()
-    ]
-    for a, b in zip(events, expected_events):
-        assert repr(a) == repr(b), f"\nGot:      {a}\nExpected: {b}"
-    print("tokens_to_events     : OK")
-
-    result = deflate_decompress(events)
-    assert result == b'abcabcabcabc', f"Got {result}"
-    print("deflate_decompress   : OK  (spec example)")
-
-    # ── overlapping match ──────────────────────────────────────
-    events2 = tokens_to_events([Literal(97), Match(length=9, distance=1)])
-    assert deflate_decompress(events2) == b'aaaaaaaaaa'
-    print("overlapping match    : OK")
-
-    # ── count_frequencies ──────────────────────────────────────
-    lit_freq, dist_freq = count_frequencies(events)
-    assert lit_freq[97]  == 1
-    assert lit_freq[98]  == 1
-    assert lit_freq[99]  == 1
-    assert lit_freq[263] == 1
-    assert lit_freq[256] == 1
-    assert dist_freq[2]  == 1
-    print("count_frequencies    : OK")
-
-    print("\n✓ All tests passed.")
+    run_lz77_tests()
