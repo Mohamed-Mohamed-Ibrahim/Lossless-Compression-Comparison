@@ -1,11 +1,12 @@
 import os
-import sys
 import logging
 import argparse
+import time
 from constants.modes import Mode
 from constants.constants import MAX_FILE_SIZE
 from deflate.compressor import DeflateCompressor
 from range_coding.compressor import RangeCodingCompressor
+from range_coding.decompressor import RangeCodingDecompressor
 
 
 def get_parser():
@@ -42,16 +43,16 @@ def configure_logging():
 
 def get_mode_from_args(args):
     mode, filePath = None, None
-    if args.rc != None:
+    if args.rc is not None:
         mode = Mode.RangeCodingCompressor
         filePath = args.rc
-    elif args.rd != None:
+    elif args.rd is not None:
         mode = Mode.RangeCodingDecompressor
         filePath = args.rd
-    elif args.c != None:
+    elif args.c is not None:
         mode = Mode.DeflateCompressor
         filePath = args.c
-    elif args.d != None:
+    elif args.d is not None:
         mode = Mode.DeflateDecompressor
         filePath = args.d
     else:
@@ -73,6 +74,7 @@ def check_file_size(filePath):
 
 
 def main():
+    start = time.time()
     args = get_parser()
     configure_logging()
 
@@ -96,7 +98,7 @@ def main():
             with open(out_path, "wb") as f:
                 f.write(compressedData)
         elif mode == Mode.RangeCodingDecompressor:
-            decompressor = RangeCodingCompressor()
+            decompressor = RangeCodingDecompressor()
             decompressedData = decompressor.decompress(data)
             out_path = filePath.rsplit(".rng", 1)[0]
             with open(out_path, "wb") as f:
@@ -116,6 +118,9 @@ def main():
                 f.write(decompressedData)
     except Exception as e:
         logging.error(f"An unexpected error occurred: {e}")
+
+    elapsed_time = time.time() - start
+    print(f"Elapsed time : {elapsed_time} seconds")
 
 
 if __name__ == "__main__":
