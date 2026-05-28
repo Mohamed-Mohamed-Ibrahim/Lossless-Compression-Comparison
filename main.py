@@ -103,7 +103,6 @@ def main():
                 f.write(decompressedData)
         elif mode == Mode.DeflateCompressor:
             compressor = DeflateCompressor()
-            compressor.compress(data)
             compressedData = compressor.compress(data)
             out_path = filePath + ".sdfl"
             with open(out_path, "wb") as f:
