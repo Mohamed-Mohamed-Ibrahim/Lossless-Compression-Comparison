@@ -92,8 +92,8 @@ def main():
     inputFilePath = None
     outputFilePath = None
     metricsFlag = args.metrics
-    inputFileSize = 0
-    outputFileSize = 0
+    inputFileSize = 1
+    outputFileSize = 1
 
     try:
         mode, inputFilePath = get_mode_from_args(args)
@@ -132,16 +132,15 @@ def main():
             with open(outputFilePath, "wb") as f:
                 f.write(decompressedData)
         outputFileSize = os.path.getsize(outputFilePath)
+        elapsed_time = time.time() - start
+        if metricsFlag:
+            print(f"Elapsed time : {elapsed_time * 1000} ms")
+            if mode == Mode.DeflateCompressor or mode == Mode.RangeCodingCompressor:
+                print(f"Compression Ratio : {outputFileSize / inputFileSize} ")
+            else:
+                print(f"Compression Ratio : {inputFileSize / outputFileSize} ")
     except Exception as e:
         logging.error(f"An unexpected error occurred: {e}")
-
-    elapsed_time = time.time() - start
-    if metricsFlag:
-        print(f"Elapsed time : {elapsed_time * 1000} ms")
-        if mode == Mode.DeflateCompressor or mode == Mode.RangeCodingCompressor:
-            print(f"Compression Ratio : {outputFileSize / inputFileSize} ")
-        else:
-            print(f"Compression Ratio : {inputFileSize / outputFileSize} ")
 
 
 if __name__ == "__main__":
