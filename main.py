@@ -27,6 +27,15 @@ def get_parser():
         type=str,
         help="decompress a file using deflate",
     )
+    # Metrics
+    parser.add_argument(
+        "-m",
+        "--metrics",
+        type=bool,
+        default=False,
+        required=False,
+        help="print metrics for compression or decompression",
+    )
 
     return parser.parse_args()
 
@@ -71,55 +80,68 @@ def check_file_size(filePath):
     size = os.path.getsize(filePath)
     if size > MAX_FILE_SIZE:
         raise Exception("Maximum File size allowed is 50 MB.")
+    return size
 
 
 def main():
-    start = time.time()
     args = get_parser()
     configure_logging()
 
+    start = 0
     mode = None
-    filePath = None
+    inputFilePath = None
+    outputFilePath = None
+    metricsFlag = args.metrics
+    inputFileSize = 0
+    outputFileSize = 0
 
     try:
-        mode, filePath = get_mode_from_args(args)
+        mode, inputFilePath = get_mode_from_args(args)
 
-        check_file_path(mode, filePath)
+        check_file_path(mode, inputFilePath)
 
-        check_file_size(filePath)
+        inputFileSize = check_file_size(inputFilePath)
 
-        with open(filePath, "rb") as file:
+        with open(inputFilePath, "rb") as file:
             data = file.read()
 
+        start = time.time()
         if mode == Mode.RangeCodingCompressor:
             compressor = RangeCodingCompressor()
             compressedData = compressor.compress(data)
-            out_path = filePath + ".rng"
-            with open(out_path, "wb") as f:
+            outputFilePath = inputFilePath + ".rng"
+            with open(outputFilePath, "wb") as f:
                 f.write(compressedData)
+            outputFileSize = os.path.getsize(inputFilePath)
         elif mode == Mode.RangeCodingDecompressor:
             decompressor = RangeCodingDecompressor()
             decompressedData = decompressor.decompress(data)
-            out_path = filePath.rsplit(".rng", 1)[0]
-            with open(out_path, "wb") as f:
+            outputFilePath = inputFilePath.rsplit(".rng", 1)[0]
+            with open(outputFilePath, "wb") as f:
                 f.write(decompressedData)
         elif mode == Mode.DeflateCompressor:
             compressor = DeflateCompressor()
             compressedData = compressor.compress(data)
-            out_path = filePath + ".sdfl"
-            with open(out_path, "wb") as f:
+            outputFilePath = inputFilePath + ".sdfl"
+            with open(outputFilePath, "wb") as f:
                 f.write(compressedData)
         elif mode == Mode.DeflateDecompressor:
             decompressor = DeflateCompressor()
             decompressedData = decompressor.decompress(data)
-            out_path = filePath.rsplit(".sdfl", 1)[0]
-            with open(out_path, "wb") as f:
+            outputFilePath = inputFilePath.rsplit(".sdfl", 1)[0]
+            with open(outputFilePath, "wb") as f:
                 f.write(decompressedData)
+        outputFileSize = os.path.getsize(outputFilePath)
     except Exception as e:
         logging.error(f"An unexpected error occurred: {e}")
 
     elapsed_time = time.time() - start
-    print(f"Elapsed time : {elapsed_time} seconds")
+    if metricsFlag:
+        print(f"Elapsed time : {elapsed_time * 1000} ms")
+        if mode == Mode.DeflateCompressor or mode == Mode.RangeCodingCompressor:
+            print(f"Compression Ratio : {outputFileSize / inputFileSize} ")
+        else:
+            print(f"Compression Ratio : {inputFileSize / outputFileSize} ")
 
 
 if __name__ == "__main__":
