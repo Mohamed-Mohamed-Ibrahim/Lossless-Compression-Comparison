@@ -1,0 +1,4 @@
+Hello, World!
+This is a small text file used for compression testing.
+It contains a few sentences to give the compressor something to work with.
+The quick brown fox jumps over the lazy dog.

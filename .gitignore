@@ -1,4 +1,7 @@
-tests/files/
+tests/files/*
+!tests/files/01_small_text.txt
+!tests/files/01_small_text.txt.sdfl
+!tests/files/01_small_text.txt.rng
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
