@@ -7,5 +7,5 @@ class Compressor(ABC):
         pass
 
     # @abstractmethod
-    # def decompress(compressedData):
-    #     pass
+    def decompress(compressedData):
+        pass
