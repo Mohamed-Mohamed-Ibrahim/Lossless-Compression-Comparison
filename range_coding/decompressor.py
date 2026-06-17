@@ -91,6 +91,7 @@ class RangeCodingDecompressor(Decompressor):
         # Parse the prepended freq table (257 × 4 bytes), then load the remaining bits
         self.bits = bitarray()
         freq = np.frombuffer(compressed_data[:1028], dtype=">u4")
+        freq = freq.astype(object) 
         self.bits.frombytes(compressed_data[1028:])
 
         self.total = int(np.sum(freq))     # Total symbol count drives range scaling
