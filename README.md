@@ -1,4 +1,4 @@
-# Compression-Comparison-Range-Coding-vs-DEFLATE
+# Lossless Compression Comparison 
 
 A comparison of two lossless compression algorithms: **Range Coding** and a simplified **DEFLATE** implementation.
 
